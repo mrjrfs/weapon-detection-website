@@ -52,7 +52,7 @@ export default function AboutPage() {
                 <div className="relative">
                   <div className="w-64 h-64 rounded-full overflow-hidden shadow-xl border-4 border-white">
                     <img
-                      src="/placeholder.svg?height=256&width=256"
+                      src="/josep-ronaldo-francis-siregar.png"
                       alt="Josep Ronaldo Francis Siregar"
                       className="w-full h-full object-cover"
                     />
@@ -88,14 +88,14 @@ export default function AboutPage() {
                 </div>
 
                 <div className="mt-8 flex flex-wrap gap-3">
+                  <span className="px-4 py-2 bg-purple-100 text-purple-800 rounded-full text-sm font-medium">
+                    Backend Developer
+                  </span>
                   <span className="px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
                     Machine Learning
                   </span>
                   <span className="px-4 py-2 bg-green-100 text-green-800 rounded-full text-sm font-medium">
                     Computer Vision
-                  </span>
-                  <span className="px-4 py-2 bg-purple-100 text-purple-800 rounded-full text-sm font-medium">
-                    AI Security
                   </span>
                   <span className="px-4 py-2 bg-red-100 text-red-800 rounded-full text-sm font-medium">
                     Public Safety
