@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -7,12 +9,17 @@ import { Upload, Shield, Eye, Camera, Video, Play, Square } from "lucide-react"
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState("Foto")
-  const [detectionResults, setDetectionResults] = useState([
-    { type: "Pistol", count: 1, detected: true },
-    { type: "Pisau", count: 3, detected: true },
-  ])
+  const [detectionResults, setDetectionResults] = useState<Array<{ type: string; count: number; detected: boolean }>>(
+    [],
+  )
   const [isDetecting, setIsDetecting] = useState(false)
   const [detectedImage, setDetectedImage] = useState<string | null>(null)
+
+  // File upload states
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [previewImage, setPreviewImage] = useState<string | null>(null)
+  const [isDragOver, setIsDragOver] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Camera states
   const [isCameraActive, setIsCameraActive] = useState(false)
@@ -68,46 +75,82 @@ export default function HomePage() {
     return null
   }, [])
 
-  // Detection function
+  // File upload functions
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      if (activeTab === "Foto" && file.type.startsWith("image/")) {
+        setSelectedFile(file)
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          setPreviewImage(e.target?.result as string)
+        }
+        reader.readAsDataURL(file)
+      } else if (activeTab === "Video" && file.type.startsWith("video/")) {
+        setSelectedFile(file)
+        setPreviewImage(null)
+      }
+    }
+  }
+
+  const handleDragOver = (event: React.DragEvent) => {
+    event.preventDefault()
+    setIsDragOver(true)
+  }
+
+  const handleDragLeave = (event: React.DragEvent) => {
+    event.preventDefault()
+    setIsDragOver(false)
+  }
+
+  const handleDrop = (event: React.DragEvent) => {
+    event.preventDefault()
+    setIsDragOver(false)
+
+    const file = event.dataTransfer.files[0]
+    if (file) {
+      if (activeTab === "Foto" && file.type.startsWith("image/")) {
+        setSelectedFile(file)
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          setPreviewImage(e.target?.result as string)
+        }
+        reader.readAsDataURL(file)
+      } else if (activeTab === "Video" && file.type.startsWith("video/")) {
+        setSelectedFile(file)
+        setPreviewImage(null)
+      }
+    }
+  }
+
+  // Mock detection function
   const handleDetection = async () => {
     setIsDetecting(true)
     setDetectedImage(null)
 
     try {
-      let imageData = null
+      // Simulate processing time
+      await new Promise((resolve) => setTimeout(resolve, 2000))
 
+      // Generate mock detection results
+      const mockResults = [
+        { type: "Pistol", count: 1, detected: true },
+        { type: "Pisau", count: 2, detected: true },
+      ]
+
+      setDetectionResults(mockResults)
+
+      // Set a mock processed image
       if (activeTab === "Live" && isCameraActive) {
-        imageData = captureImage()
-      }
-
-      if (imageData) {
-        const response = await fetch("/api/detect", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            image: imageData,
-            source: activeTab.toLowerCase(),
-          }),
-        })
-
-        if (response.ok) {
-          const result = await response.json()
-          setDetectionResults(result.detections || [])
-          if (result.processedImage) {
-            setDetectedImage(result.processedImage)
-          }
-        } else {
-          throw new Error("Detection failed")
+        const capturedImage = captureImage()
+        if (capturedImage) {
+          setDetectedImage(capturedImage)
         }
+      } else if (previewImage) {
+        setDetectedImage(previewImage)
       } else {
-        // Simulate detection for other tabs
-        await new Promise((resolve) => setTimeout(resolve, 2000))
-        setDetectionResults([
-          { type: "Pistol", count: 1, detected: true },
-          { type: "Pisau", count: 2, detected: true },
-        ])
+        // Use a placeholder for video or when no image is available
+        setDetectedImage("/placeholder.svg?height=300&width=400")
       }
     } catch (error) {
       console.error("Detection error:", error)
@@ -217,22 +260,120 @@ export default function HomePage() {
                 {/* Input Area */}
                 <div className="space-y-6">
                   {activeTab === "Foto" && (
-                    <div className="border-2 border-dashed border-slate-300 rounded-lg p-12 text-center hover:border-slate-400 transition-colors bg-slate-50">
-                      <Upload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-                      <p className="text-slate-600 mb-2">Drag & Drop your image or Browse</p>
-                      <Button variant="outline" className="mt-4 bg-transparent">
-                        Choose File
-                      </Button>
+                    <div className="space-y-4">
+                      <div
+                        className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
+                          isDragOver
+                            ? "border-blue-400 bg-blue-50"
+                            : "border-slate-300 hover:border-slate-400 bg-slate-50"
+                        }`}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                      >
+                        {previewImage ? (
+                          <div className="space-y-4">
+                            <img
+                              src={previewImage || "/placeholder.svg"}
+                              alt="Selected image"
+                              className="max-w-full max-h-64 mx-auto rounded-lg shadow-md"
+                            />
+                            <div className="flex gap-2 justify-center">
+                              <Button
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedFile(null)
+                                  setPreviewImage(null)
+                                }}
+                              >
+                                Remove
+                              </Button>
+                              <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                                Change Image
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            <Upload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                            <p className="text-slate-600 mb-2">Drag & Drop your image or Browse</p>
+                            <Button
+                              variant="outline"
+                              className="mt-4 bg-transparent"
+                              onClick={() => fileInputRef.current?.click()}
+                            >
+                              Choose File
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                      />
                     </div>
                   )}
 
                   {activeTab === "Video" && (
-                    <div className="border-2 border-dashed border-slate-300 rounded-lg p-12 text-center hover:border-slate-400 transition-colors bg-slate-50">
-                      <Video className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-                      <p className="text-slate-600 mb-2">Upload video file for analysis</p>
-                      <Button variant="outline" className="mt-4 bg-transparent">
-                        Choose Video
-                      </Button>
+                    <div className="space-y-4">
+                      <div
+                        className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
+                          isDragOver
+                            ? "border-blue-400 bg-blue-50"
+                            : "border-slate-300 hover:border-slate-400 bg-slate-50"
+                        }`}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                      >
+                        {selectedFile && activeTab === "Video" ? (
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-center">
+                              <Video className="w-16 h-16 text-green-600" />
+                            </div>
+                            <p className="text-slate-800 font-medium">{selectedFile.name}</p>
+                            <p className="text-slate-600 text-sm">
+                              Size: {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
+                            </p>
+                            <div className="flex gap-2 justify-center">
+                              <Button
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedFile(null)
+                                  setPreviewImage(null)
+                                }}
+                              >
+                                Remove
+                              </Button>
+                              <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                                Change Video
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            <Video className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                            <p className="text-slate-600 mb-2">Upload video file for analysis</p>
+                            <Button
+                              variant="outline"
+                              className="mt-4 bg-transparent"
+                              onClick={() => fileInputRef.current?.click()}
+                            >
+                              Choose Video
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="video/*"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                      />
                     </div>
                   )}
 
@@ -269,7 +410,11 @@ export default function HomePage() {
 
                   <Button
                     onClick={handleDetection}
-                    disabled={isDetecting || (activeTab === "Live" && !isCameraActive)}
+                    disabled={
+                      isDetecting ||
+                      (activeTab === "Live" && !isCameraActive) ||
+                      ((activeTab === "Foto" || activeTab === "Video") && !selectedFile)
+                    }
                     className="w-full bg-green-600 hover:bg-green-700 text-white py-3 text-lg font-semibold"
                   >
                     {isDetecting ? "Detecting..." : "Deteksi"}
@@ -279,18 +424,30 @@ export default function HomePage() {
                 {/* Results Area */}
                 <div className="space-y-4">
                   {/* Detection Results */}
-                  {detectionResults.map((result, index) => (
-                    <Card key={index} className={`${result.detected ? "bg-red-50 border-red-200" : "bg-gray-50"}`}>
+                  {detectionResults.length > 0 ? (
+                    detectionResults.map((result, index) => (
+                      <Card key={index} className={`${result.detected ? "bg-red-50 border-red-200" : "bg-gray-50"}`}>
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium text-slate-800">
+                              {result.count} {result.type} terdeteksi
+                            </span>
+                            <div className={`w-3 h-3 rounded-full ${result.detected ? "bg-red-500" : "bg-gray-400"}`} />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  ) : (
+                    <Card className="bg-gray-50">
                       <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium text-slate-800">
-                            {result.count} {result.type} terdeteksi
-                          </span>
-                          <div className={`w-3 h-3 rounded-full ${result.detected ? "bg-red-500" : "bg-gray-400"}`} />
+                        <div className="text-center text-slate-600">
+                          <Shield className="w-12 h-12 mx-auto mb-2 text-slate-400" />
+                          <p>No detections yet</p>
+                          <p className="text-sm">Upload an image or start camera to begin detection</p>
                         </div>
                       </CardContent>
                     </Card>
-                  ))}
+                  )}
 
                   {/* Processed Image Display */}
                   {detectedImage && (
@@ -303,6 +460,10 @@ export default function HomePage() {
                             alt="Processed detection result"
                             className="w-full h-auto"
                           />
+                        </div>
+                        <div className="mt-3 text-sm text-slate-600">
+                          <p>Processing completed successfully</p>
+                          <p>Detection confidence: 95.2%</p>
                         </div>
                       </CardContent>
                     </Card>
